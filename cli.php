@@ -22,6 +22,7 @@ class K2ToJoomlaCli extends JApplicationCli
 		$limit = $this->input->getInt('limit', 20);
 		$baseUrl = $this->input->getCwd('baseUrl', JPATH_ROOT);
 		$destImageUrl = $this->input->getCwd('destImageUrl', null);
+		$categoryName = $this->input->getString('categoryName', 'Categoría');
 
         if ($userId == 0) {
             $this->out('Es necesario el --userid de un Usuario Administrador para generar los articulos y categorias', true);
@@ -31,9 +32,13 @@ class K2ToJoomlaCli extends JApplicationCli
         if ($limit <= 0) {
             $this->out('El campo --limit tiene que ser mayor a 0', true);
             return false;
-        }    
+        }
 
-        $migration = new Migration($userId, $baseUrl, $destImageUrl);
+        if (empty($categoryName)) {
+            $categoryName = 'Categoría';
+        } 
+
+        $migration = new Migration($this, $userId, $baseUrl, $destImageUrl);
 
         $mapCategories = $this->loadMapCategories();
 
@@ -48,7 +53,7 @@ class K2ToJoomlaCli extends JApplicationCli
 
             $this->out(' (!) Migrando Categorias...', true);
 
-            $migration->migrateK2Categories();
+            $migration->migrateK2Categories($categoryName);
 
             $this->saveMapCategories($migration->getMapCategories());
 
@@ -81,6 +86,9 @@ class K2ToJoomlaCli extends JApplicationCli
 
         }
 
+        $this->out('     Artículos: ' . $this->pagination->countArticles, true);
+        $this->out('     Páginas: ' . $this->pagination->pages, true);
+
         for ($i = $this->pagination->currentPage; $i < $this->pagination->pages; $i++) {
             $this->pagination->currentPage = $i;
 
@@ -94,10 +102,9 @@ class K2ToJoomlaCli extends JApplicationCli
     
                 $this->out('     Página ' . $this->pagination->currentPage . ' de ' . $this->pagination->pages . ', limit: ' . $this->pagination->limit, true);
 
-                die();
-
             } catch(Exception $e) {
                 $this->savePagination($this->pagination);
+                $this->out('     Exception: ' . $e->getMessage(), true);
             }
 
         }

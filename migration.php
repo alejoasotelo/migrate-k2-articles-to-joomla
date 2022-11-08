@@ -7,6 +7,12 @@ require_once JPATH_ADMINISTRATOR . '/components/com_categories/models/category.p
 
 class Migration
 {
+    /**
+     * Instancia de la app cli
+     *
+     * @var JApplicationCli
+     */
+    protected $app = null;
 
     protected $categoryModel = null;
 
@@ -20,8 +26,9 @@ class Migration
 
     protected $destImageUrl = null;
 
-    public function __construct($userId, $baseUrl = JPATH_ROOT, $destImageUrl = null)
+    public function __construct($app, $userId, $baseUrl = JPATH_ROOT, $destImageUrl = null)
     {
+        $this->app = $app;
         $this->userId = $userId;
         $this->baseUrl = $baseUrl;
         $this->destImageUrl = is_null($destImageUrl) ? 'images/articulos/src' : $destImageUrl;
@@ -38,18 +45,20 @@ class Migration
      *
      * @return void
      */
-    public function migrateK2Categories()
+    public function migrateK2Categories($categoryName = 'K2 a Joomla')
     {
         // Obtengo las K2 Categories
         $k2Categories = $this->getK2CategoriesTree();
 
         // Creo la categoría Padre para todas las categorías de K2
         $category = (object)[
-            'title' => 'Categoria K2',
-            'alias' => 'categoria-k2-' . uniqid()
+            'title' => $categoryName,
+            'alias' => JFilterOutput::stringURLSafe($categoryName) . '-' . uniqid()
         ];
 
         $idCategoriaInicial = $this->createJoomlaCategory($category);
+
+        $this->mapCategories[$idCategoriaInicial] = $idCategoriaInicial;
 
         // Convierto las K2 Categories en Joomla Categories
         $this->createJoomlaCategories($k2Categories, $idCategoriaInicial);
@@ -157,6 +166,7 @@ class Migration
                 $articlesMigrated[] = [
                     'idK2' => $k2Article->id,
                     'idJoomla' => $idJoomlaArticle,
+                    'idJoomlaCategory' => $idJoomlaCategory,
                     'success' => $idJoomlaArticle > 0 
                 ];
             }
@@ -175,6 +185,7 @@ class Migration
             ->select($this->userId . ' as `created_by`, ' . $this->userId . ' as `modified_by`, `published`')
             ->selecT('`created_by_alias`, `checked_out`, `checked_out_time`, `modified`, `publish_up`, `publish_down`, `access`, `featured`, `hits`, `language`')
             ->from('#__k2_items')
+            //->where('id > 63787')
             //->where('catid = ' . $idK2Category)
             ->order('id ASC')
             ->setLimit($limit, $page * $limit);
@@ -190,6 +201,7 @@ class Migration
         $query
             ->select('count(*)')
             ->from('#__k2_items');
+            //->where('id > 63787');
 
         return (int)$dbo->setQuery($query)->loadResult();
     }
@@ -267,17 +279,23 @@ class Migration
             $data['images'] = (string)$images;
         }
 
-        if (!$this->articleModel->save($data)) {
-            //$err_msg = $this->articleModel->getError();
+        $articleTable = JTable::getInstance('Content');
+        $articleTable->bind($data);
 
-            $data['alias'] .= '-' . $catId;
-
-            if (!$this->articleModel->save($data)) {
-                return false;
-            }
+		$table = JTable::getInstance('Content', 'JTable');
+        // chequeo si ya existe el alias, si existe le agrego los nuevos tags y texto.
+		if ($table->load(array('alias' => $data['alias'], 'catid' => $catId)))
+		{
+            $this->app->out('     Duplicado (id: '.$table->id.'): '.$data['alias'], true);
+            return $table->id;
         }
 
-        return $this->articleModel->getItem()->id;
+        if (!$articleTable->store()) {
+            $this->app->out('     ' . print_r($articleTable->getErrors(), true), true);
+            return false;
+        }
+
+        return $articleTable->id;
     }
 
     public function getMapCategories() {

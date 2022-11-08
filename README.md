@@ -9,14 +9,14 @@ Quedando de la siguiente manera:
 
 ```bash
 mi-joomla
-|__ cli
-    |__ k2tojoomla
-        |__ bootstrap.php
-        |__ cli.php
-        |__ migration.js
-        |__ migration.php
-        |__ README.md
-        |__ web.php
+┗━ cli
+   ┗━ k2tojoomla
+      ┣━ bootstrap.php
+      ┣━ cli.php
+      ┣━ migration.js
+      ┣━ migration.php
+      ┣━ README.md
+      ┗━ web.php
 ```
 
 ## Ejecución
